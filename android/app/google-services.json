@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "391632552910",
+    "project_id": "too-pressing-b3fb2",
+    "storage_bucket": "too-pressing-b3fb2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:391632552910:android:efc87a41c1d40433dea19f",
+        "android_client_info": {
+          "package_name": "com.example.pressing_too"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCFaaRyL55iQVrnqZbwk7SgG1TqqOi0xFw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

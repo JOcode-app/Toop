@@ -1,0 +1,41 @@
+name: pressing_too
+description: Application de pressing Too Pressing
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.2.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.6
+  google_fonts: ^6.0.0
+  flutter_svg: ^2.0.7
+  provider: ^6.0.5
+  shared_preferences: ^2.1.1
+
+  firebase_core: ^2.25.5
+  firebase_analytics: ^10.8.9
+  firebase_auth: ^4.4.5
+  cloud_firestore: ^4.7.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  flutter_launcher_icons: "^0.13.1"
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#ffffff"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo_collar.png
+    - assets/icon/app_icon.png
