@@ -10,7 +10,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   static const Color appBlue = Color(0xFF1F7BB6); // barre de titre
-// pastilles/accents
+// pastilles/accents22
   static const Color pillBlue = Color(0xFF3B97D3);
   static const Color greenBtn = Color(0xFF3CB371);
   static const Color blueBtn = Color(0xFF2D84B7);
