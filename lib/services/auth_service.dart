@@ -14,7 +14,7 @@ class AuthService {
       throw Exception('Connexion Google annulée');
     }
 
-    // Récupère les tokens
+    // Récupère les tokens (⚠️ besoin de await)
     final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
 
     // Crée la credential
@@ -33,7 +33,7 @@ class AuthService {
       permissions: ['email', 'public_profile'],
     );
 
-    if (result.status != LoginStatus.success) {
+    if (result.status != LoginStatus.success || result.accessToken == null) {
       throw Exception('Connexion Facebook annulée ou échouée: ${result.message ?? ''}');
     }
 
@@ -62,8 +62,13 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
-    await FacebookAuth.instance.logOut();
+    // Déconnexion des providers sociaux si utilisés
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
+    try {
+      await FacebookAuth.instance.logOut();
+    } catch (_) {}
     await _auth.signOut();
   }
 }

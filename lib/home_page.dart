@@ -30,16 +30,19 @@ class HomePage extends StatelessWidget {
           children: [
             if (user?.photoURL != null)
               CircleAvatar(
-                radius: 36,
+                radius: 40,
                 backgroundImage: NetworkImage(user!.photoURL!),
               ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Text(
               "Bienvenue ${user?.displayName ?? 'Utilisateur'}",
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            Text(user?.email ?? '', style: const TextStyle(color: Colors.grey)),
+            Text(
+              user?.email ?? '',
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
+            ),
           ],
         ),
       ),

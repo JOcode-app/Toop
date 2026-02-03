@@ -10,26 +10,25 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # UI
   cupertino_icons: ^1.0.6
   google_fonts: ^6.0.0
   flutter_svg: ^2.0.7
   provider: ^6.0.5
-  shared_preferences: ^2.1.1
+  shared_preferences: ^2.2.3
 
-  firebase_core: ^2.25.5
-  firebase_analytics: ^10.8.9
-  firebase_auth: ^4.4.5
-  cloud_firestore: ^4.7.6
-  google_sign_in: ^7.2.0
-  flutter_facebook_auth: ^7.1.1
+  # FlutterFire (génération stable 2.x/4.x entre elles)
+  firebase_core: ^2.30.1
+  firebase_auth: ^4.19.6
 
-  
+  # Google Sign-In (compatible avec la génération ci-dessus)
+  google_sign_in: ^6.2.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.1
-  flutter_launcher_icons: "^0.13.1"
+  flutter_launcher_icons: ^0.13.1
 
 flutter_icons:
   android: true

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-import 'firebase_options.dart'; // généré par `flutterfire configure`
+import 'firebase_options.dart';
 import 'login_page.dart';
 import 'home_page.dart';
 
@@ -38,7 +38,6 @@ class PressingApp extends StatelessWidget {
 class StartScreen extends StatelessWidget {
   const StartScreen({super.key});
 
-  // Palette
   static const Color primaryBlue = Color.fromARGB(255, 97, 168, 249);
   static const Color deepBlue = Color(0xFF123252);
   static const Color textGrey = Color(0xFF9AA3AF);
@@ -195,8 +194,7 @@ class _SmallButton extends StatelessWidget {
               label,
               style: const TextStyle(
                 color: Color(0xFF9AA3AF),
-                fontWeight: FontWeight.w600,
-              ),
+                fontWeight: FontWeight.w600),
             ),
           ],
         ),

@@ -7,7 +7,6 @@ class LoginPage extends StatelessWidget {
 
   // Couleurs UI
   static const Color deepBlue = Color(0xFF123252);
-  static const Color fbBlue = Color(0xFF1877F2);
   static const Color googleBlue = Color(0xFF4285F4);
   static const Color emailGreen = Color(0xFF34A853);
   static const Color chipGrey = Color(0xFFF1F3F5);
@@ -17,7 +16,6 @@ class LoginPage extends StatelessWidget {
     BuildContext context, {
     required Future<void> Function() action,
   }) async {
-    // Loader
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -34,12 +32,8 @@ class LoginPage extends StatelessWidget {
       if (context.mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              e.toString().contains('annulée')
-                  ? 'Opération annulée.'
-                  : 'Échec de la connexion. Veuillez réessayer.',
-            ),
+          const SnackBar(
+            content: Text('Échec de la connexion. Veuillez réessayer.'),
           ),
         );
       }
@@ -128,26 +122,10 @@ class LoginPage extends StatelessWidget {
 
               const SizedBox(height: 22),
 
-              // --- FACEBOOK ---
-              _SocialButton(
-                color: fbBlue,
-                icon: Icons.facebook,
-                label: "Se connecter avec Facebook",
-                onPressed: () {
-                  _handleAuth(
-                    context,
-                    action: () async {
-                      await auth.signInWithFacebook();
-                    },
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-
               // --- GOOGLE ---
               _SocialButton(
                 color: googleBlue,
-                icon: Icons.g_mobiledata, // Tu peux mettre une icône Google custom (asset)
+                icon: Icons.g_mobiledata, // Tu peux remplacer par une icône Google officielle (asset)
                 label: "Se connecter avec Google",
                 onPressed: () {
                   _handleAuth(
@@ -225,6 +203,7 @@ class _SocialButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   const _SocialButton({
+    super.key,
     required this.color,
     required this.icon,
     required this.label,
@@ -268,7 +247,7 @@ class EmailAuthPage extends StatelessWidget {
 }
 
 class _EmailAuthView extends StatefulWidget {
-  const _EmailAuthView();
+  const _EmailAuthView({super.key});
 
   @override
   State<_EmailAuthView> createState() => _EmailAuthViewState();
@@ -409,9 +388,7 @@ class _EmailAuthViewState extends State<_EmailAuthView> {
                   ),
                   const SizedBox(height: 10),
                   TextButton(
-                    onPressed: _loading
-                        ? null
-                        : () => setState(() => _isLogin = !_isLogin),
+                    onPressed: _loading ? null : () => setState(() => _isLogin = !_isLogin),
                     child: Text(
                       _isLogin
                           ? "Pas de compte ? Créer un compte"
