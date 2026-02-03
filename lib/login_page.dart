@@ -203,7 +203,6 @@ class _SocialButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   const _SocialButton({
-    super.key,
     required this.color,
     required this.icon,
     required this.label,
@@ -247,7 +246,7 @@ class EmailAuthPage extends StatelessWidget {
 }
 
 class _EmailAuthView extends StatefulWidget {
-  const _EmailAuthView({super.key});
+  const _EmailAuthView();
 
   @override
   State<_EmailAuthView> createState() => _EmailAuthViewState();
