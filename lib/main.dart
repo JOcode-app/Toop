@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
-import 'login_page.dart';
-import 'home_page.dart'; // <-- AJOUTE CETTE IMPORTATION
+import 'package:firebase_core/firebase_core.dart';
 
-void main() {
+import 'firebase_options.dart'; // généré par `flutterfire configure`
+import 'login_page.dart';
+import 'home_page.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const PressingApp());
 }
 
@@ -22,7 +29,7 @@ class PressingApp extends StatelessWidget {
       routes: {
         '/': (_) => const StartScreen(),
         '/login': (_) => const LoginPage(),
-        '/home': (_) => const HomePage(), // <-- NOUVELLE ROUTE
+        '/home': (_) => const HomePage(),
       },
     );
   }
@@ -45,8 +52,6 @@ class StartScreen extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 40),
-
-            // --- LOGO JPEG ---
             Expanded(
               child: Center(
                 child: Image.asset(
@@ -56,8 +61,6 @@ class StartScreen extends StatelessWidget {
                 ),
               ),
             ),
-
-            // --- TITRE ---
             const Text(
               'TOO PRESSING',
               style: TextStyle(
@@ -71,7 +74,6 @@ class StartScreen extends StatelessWidget {
               'Le temple de la propreté',
               style: TextStyle(fontSize: 14, color: Color(0xFFB2B8BF)),
             ),
-
             const SizedBox(height: 25),
 
             // --- BOUTON DÉMARRER -> HOME PAGE ---
@@ -82,7 +84,7 @@ class StartScreen extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pushNamed(context, '/home'); // <-- ICI
+                    Navigator.pushNamed(context, '/home');
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryBlue,
@@ -123,8 +125,6 @@ class StartScreen extends StatelessWidget {
             ),
 
             const SizedBox(height: 20),
-
-            // --- PETITS BOUTONS ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
@@ -147,9 +147,7 @@ class StartScreen extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: 20),
-
             TextButton(
               onPressed: () {},
               child: const Text(
@@ -157,7 +155,6 @@ class StartScreen extends StatelessWidget {
                 style: TextStyle(color: textGrey, fontSize: 14),
               ),
             ),
-
             const SizedBox(height: 20),
           ],
         ),

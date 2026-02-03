@@ -1,21 +1,55 @@
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-
+import 'services/auth_service.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
 
   // Couleurs UI
   static const Color deepBlue = Color(0xFF123252);
-  static const Color fbBlue = Color(0xFF4267B2);
+  static const Color fbBlue = Color(0xFF1877F2);
   static const Color googleBlue = Color(0xFF4285F4);
   static const Color emailGreen = Color(0xFF34A853);
   static const Color chipGrey = Color(0xFFF1F3F5);
   static const Color textGrey = Color(0xFF6B7280);
 
+  Future<void> _handleAuth(
+    BuildContext context, {
+    required Future<void> Function() action,
+  }) async {
+    // Loader
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await action();
+      if (context.mounted) {
+        Navigator.of(context).pop(); // ferme le loader
+        Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e.toString().contains('annulée')
+                  ? 'Opération annulée.'
+                  : 'Échec de la connexion. Veuillez réessayer.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final auth = AuthService();
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -94,22 +128,34 @@ class LoginPage extends StatelessWidget {
 
               const SizedBox(height: 22),
 
+              // --- FACEBOOK ---
               _SocialButton(
                 color: fbBlue,
                 icon: Icons.facebook,
-                label: "S'inscrire avec Facebook",
+                label: "Se connecter avec Facebook",
                 onPressed: () {
-                  // TODO: connexion Facebook
+                  _handleAuth(
+                    context,
+                    action: () async {
+                      await auth.signInWithFacebook();
+                    },
+                  );
                 },
               ),
               const SizedBox(height: 12),
 
+              // --- GOOGLE ---
               _SocialButton(
                 color: googleBlue,
-                icon: Icons.g_mobiledata, // Tu peux mettre une icône Google custom
-                label: "S'inscrire avec Google",
+                icon: Icons.g_mobiledata, // Tu peux mettre une icône Google custom (asset)
+                label: "Se connecter avec Google",
                 onPressed: () {
-                  // TODO: connexion Google
+                  _handleAuth(
+                    context,
+                    action: () async {
+                      await auth.signInWithGoogle();
+                    },
+                  );
                 },
               ),
 
@@ -128,12 +174,15 @@ class LoginPage extends StatelessWidget {
 
               const SizedBox(height: 16),
 
+              // --- EMAIL ---
               _SocialButton(
                 color: emailGreen,
                 icon: Icons.email_outlined,
-                label: "S'inscrire avec mon Email",
+                label: "Se connecter avec mon Email",
                 onPressed: () {
-                  // TODO: ouvrir un écran email/password
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const EmailAuthPage()),
+                  );
                 },
               ),
 
@@ -204,6 +253,175 @@ class _SocialButton extends StatelessWidget {
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// --------- PAGE EMAIL ----------
+class EmailAuthPage extends StatelessWidget {
+  const EmailAuthPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => const _EmailAuthView();
+}
+
+class _EmailAuthView extends StatefulWidget {
+  const _EmailAuthView();
+
+  @override
+  State<_EmailAuthView> createState() => _EmailAuthViewState();
+}
+
+class _EmailAuthViewState extends State<_EmailAuthView> {
+  final _formKey = GlobalKey<FormState>();
+  final _auth = AuthService();
+
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
+
+  bool _isLogin = true;
+  bool _obscure = true;
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    _confirmCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _loading = true);
+
+    try {
+      if (_isLogin) {
+        await _auth.signInWithEmail(
+          email: _emailCtrl.text.trim(),
+          password: _passwordCtrl.text.trim(),
+        );
+      } else {
+        await _auth.registerWithEmail(
+          email: _emailCtrl.text.trim(),
+          password: _passwordCtrl.text.trim(),
+        );
+      }
+
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false);
+      }
+    } on Exception catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(_isLogin ? 'Connexion' : 'Création de compte')),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: AutofillGroup(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller: _emailCtrl,
+                    autofillHints: const [AutofillHints.email],
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Email requis';
+                      if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v)) {
+                        return 'Email invalide';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _passwordCtrl,
+                    autofillHints: const [AutofillHints.password],
+                    obscureText: _obscure,
+                    decoration: InputDecoration(
+                      labelText: 'Mot de passe',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+                        onPressed: () => setState(() => _obscure = !_obscure),
+                      ),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Mot de passe requis';
+                      if (!_isLogin && v.length < 6) {
+                        return 'Min. 6 caractères';
+                      }
+                      return null;
+                    },
+                  ),
+                  if (!_isLogin) ...[
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _confirmCtrl,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Confirmer le mot de passe',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) {
+                        if (!_isLogin && v != _passwordCtrl.text) {
+                          return 'Les mots de passe ne correspondent pas';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: _loading ? null : _submit,
+                      child: _loading
+                          ? const SizedBox(
+                              height: 22,
+                              width: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : Text(_isLogin ? 'Se connecter' : 'Créer un compte'),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextButton(
+                    onPressed: _loading
+                        ? null
+                        : () => setState(() => _isLogin = !_isLogin),
+                    child: Text(
+                      _isLogin
+                          ? "Pas de compte ? Créer un compte"
+                          : "Déjà un compte ? Se connecter",
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
