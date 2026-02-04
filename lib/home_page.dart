@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:pressing_too/pages/about_page.dart';
+import 'package:pressing_too/pages/orders_page.dart';
+import 'package:pressing_too/pages/estimate_costs_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -36,11 +39,9 @@ class HomePage extends StatelessWidget {
           children: [
             // -------------------- HERO --------------------
             _HeroHeader(
-              height: size.height * 0.28,
+              height: size.height * 0.20,
               title: "Fini la corvée de lessive !",
-              // Remplace l'image par ton asset si tu en as un
-              // image: const AssetImage('assets/hero_laundry.jpg'),
-              image: null, // <- null => dégradé placeholder
+              image: const AssetImage('assets/hero_laundry.png'), // .jpg si c'est ton fichier
             ),
 
             // -------------------- CARTE PRINCIPALE --------------------
@@ -53,7 +54,6 @@ class HomePage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
-                    // ignore: deprecated_member_use
                     color: Colors.black.withOpacity(0.06),
                     blurRadius: 14,
                     offset: const Offset(0, 6),
@@ -63,9 +63,10 @@ class HomePage extends StatelessWidget {
               child: Column(
                 children: [
                   const SizedBox(height: 4),
+
                   // ---------- Services ----------
                   const Text(
-                    "Nos Services en un Coup-d'œil",
+                    "Coup d’œil",
                     style: TextStyle(
                       color: Colors.black87,
                       fontSize: 15,
@@ -73,32 +74,52 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
+
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         _ServicePill(
-                          icon: Icons.local_shipping_outlined,
-                          title: "Collecte à\nDomicile",
+                          icon: Icons.verified_user_outlined,
+                          title: "À\npropos",
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const AboutPage()),
+                            );
+                          },
                         ),
                         _ServicePill(
-                          icon: Icons.local_laundry_service_outlined,
-                          title: "Lavage\nProfessionnel",
+                          icon: Icons.receipt_long_outlined,
+                          title: "Mes\ncommandes",
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const OrdersPage()),
+                            );
+                          },
                         ),
                         _ServicePill(
-                          icon: Icons.inventory_2_outlined,
-                          title: "Livraison\nImpeccable",
+                          icon: Icons.local_atm_outlined,
+                          title: "Estimer\nles coûts",
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const EstimateCostsPage()),
+                            );
+                          },
                         ),
                       ],
                     ),
                   ),
+
                   const SizedBox(height: 22),
                   const Divider(height: 1, color: Color(0xFFE7EBF0)),
                   const SizedBox(height: 14),
 
                   // ---------- Comment ça marche ----------
-                  const _SectionTitle(title: "Comment ça Marche ? (Étapes Simples)"),
+                  const _SectionTitle(title: "Comment ça marche ? (Étapes simples)"),
                   const SizedBox(height: 10),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12),
@@ -107,24 +128,24 @@ class HomePage extends StatelessWidget {
                         Expanded(
                           child: _StepCard(
                             stepNumber: 1,
-                            title: "Planifiez votre collecte",
-                            // image: AssetImage('assets/step_1.png'),
+                            title: "Collecte à\nDomicile",
+                            image: AssetImage('assets/step_1.png'),
                           ),
                         ),
                         SizedBox(width: 10),
                         Expanded(
                           child: _StepCard(
                             stepNumber: 2,
-                            title: "Nous nous occupons de tout",
-                            // image: AssetImage('assets/step_2.png'),
+                            title: "Lavage\nProfessionnel",
+                            image: AssetImage('assets/step_2.png'),
                           ),
                         ),
                         SizedBox(width: 10),
                         Expanded(
                           child: _StepCard(
                             stepNumber: 3,
-                            title: "Profitez de votre linge propre",
-                            // image: AssetImage('assets/step_3.png'),
+                            title: "Livraison\nImpeccable",
+                            image: AssetImage('assets/step_3.png'),
                           ),
                         ),
                       ],
@@ -133,15 +154,14 @@ class HomePage extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   // ---------- Pourquoi nous choisir ----------
-                  const _SectionTitle(title: "Pourquoi Nous Choisir ?"),
+                  const _SectionTitle(title: "Pourquoi nous choisir ?"),
                   const SizedBox(height: 8),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: _BulletList(items: [
-                      "Gain de Temps",
-                      "Qualité Garantie",
-                      "Pratique",
-                      "Respect de l’environnement",
+                      "Simplicité",
+                      "Qualité garantie",
+                      "Rapidité et fiabilité",
                     ]),
                   ),
                   const SizedBox(height: 18),
@@ -154,7 +174,11 @@ class HomePage extends StatelessWidget {
                       height: 52,
                       child: ElevatedButton(
                         onPressed: () {
-                          // TODO: ouvrir le store ou deep link
+                          // Tu peux diriger vers EstimateCostsPage directement :
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const EstimateCostsPage()),
+                          );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: deepBlue,
@@ -164,7 +188,7 @@ class HomePage extends StatelessWidget {
                           elevation: 0,
                         ),
                         child: const Text(
-                          "Télécharger l’Application",
+                          "Planifier une collecte",
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 16.5,
@@ -231,7 +255,7 @@ class _HeroHeader extends StatelessWidget {
             height: height,
             width: double.infinity,
             child: image != null
-                ? Image(image: image!, fit: BoxFit.cover)
+                ? Image(image: image!, fit: BoxFit.cover) // passe à contain si besoin
                 : placeholder,
           ),
           Positioned.fill(
@@ -271,38 +295,44 @@ class _HeroHeader extends StatelessWidget {
 class _ServicePill extends StatelessWidget {
   final IconData icon;
   final String title;
+  final VoidCallback? onTap;
 
   const _ServicePill({
     required this.icon,
     required this.title,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Column(
-        children: [
-          Container(
-            height: 62,
-            width: 62,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8F0FF),
-              borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Column(
+          children: [
+            Container(
+              height: 62,
+              width: 62,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F0FF),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(icon, color: const Color(0xFF2E5BFF), size: 30),
             ),
-            child: Icon(icon, color: const Color(0xFF2E5BFF), size: 30),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.black87,
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              height: 1.25,
+            const SizedBox(height: 6),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                height: 1.25,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -338,8 +368,8 @@ class _StepCard extends StatelessWidget {
 
   const _StepCard({
     required this.stepNumber,
-    // ignore: unused_element_parameter
-    required this.title, this.image,
+    required this.title,
+    this.image,
   });
 
   @override
@@ -397,8 +427,11 @@ class _BulletList extends StatelessWidget {
                 children: [
                   const Padding(
                     padding: EdgeInsets.only(top: 5),
-                    child: Icon(Icons.check_circle_rounded,
-                        size: 18, color: Color(0xFF34A853)),
+                    child: Icon(
+                      Icons.check_circle_rounded,
+                      size: 18,
+                      color: Color(0xFF34A853),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
