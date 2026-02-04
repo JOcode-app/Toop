@@ -338,8 +338,8 @@ class _StepCard extends StatelessWidget {
 
   const _StepCard({
     required this.stepNumber,
-    required this.title,
-    this.image,
+    // ignore: unused_element_parameter
+    required this.title, this.image,
   });
 
   @override
