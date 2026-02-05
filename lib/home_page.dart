@@ -1,3 +1,5 @@
+// lib/home_page.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:characters/characters.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fa;
@@ -42,7 +44,7 @@ class HomePage extends StatelessWidget {
     return 'U';
   }
 
-  // Extrait 1–2 initiales de façon robuste (UTF-16/graphemes via `characters`)
+  // Extrait 1–2 initiales de manière robuste (graphemes)
   String _initialsFromText(String text) {
     final parts = text.trim().split(RegExp(r'\s+'));
     String first = '';
@@ -84,8 +86,11 @@ class HomePage extends StatelessWidget {
             centerTitle: true,
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black87, size: 18),
-              onPressed: () => Navigator.pop(context),
               tooltip: 'Retour',
+              onPressed: () {
+                // Revient à la route d’accueil (définie dans main.dart) et nettoie la pile
+                Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+              },
             ),
             title: InkWell(
               borderRadius: BorderRadius.circular(20),
@@ -318,7 +323,7 @@ class HomePage extends StatelessWidget {
 }
 
 // ---------------------------------------------------------
-// Widgets internes (inchangés)
+// Widgets internes
 // ---------------------------------------------------------
 
 class _HeroCarousel extends StatefulWidget {
@@ -339,30 +344,28 @@ class _HeroCarousel extends StatefulWidget {
 }
 
 class _HeroCarouselState extends State<_HeroCarousel> {
-  late PageController _pageController;
+  late final PageController _pageController;
+  Timer? _timer;
   int _currentIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
-    _startAutoPlay();
-  }
-
-  void _startAutoPlay() {
-    Future.delayed(widget.autoPlayInterval, () {
-      if (mounted) {
-        _pageController.nextPage(
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
-        _startAutoPlay();
-      }
+    _timer = Timer.periodic(widget.autoPlayInterval, (_) {
+      if (!mounted) return;
+      final next = (_currentIndex + 1) % widget.images.length;
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
     });
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _pageController.dispose();
     super.dispose();
   }

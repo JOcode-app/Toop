@@ -1,18 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fa;
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../widgets/order_pickup_sheet.dart';
 import '../pages/order_confirmation_page.dart';
 
 // === Services ===
-// 1) MOCK (sans Firestore) :
 import '../services/order_service.dart';
-import '../services/order_service_mock.dart';
-
-// 2) FIRESTORE (si tu veux enregistrer dans la base) :
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import '../services/order_service_firestore.dart';
-// import 'package:firebase_core/firebase_core.dart'; // si besoin d'init
+import '../services/order_service_firestore.dart'; // <-- on utilise Firestore
 
 class EstimateCostsPage extends StatefulWidget {
   const EstimateCostsPage({super.key});
@@ -41,11 +36,12 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
   @override
   void initState() {
     super.initState();
-    // Choix du service :
-    _orderService = MockOrderService(); // fonctionne immédiatement
 
-    // Si tu veux Firestore ensuite :
-    // _orderService = FirestoreOrderService(FirebaseFirestore.instance);
+    /// ✅ Active l’écriture dans Firestore
+    _orderService = FirestoreOrderService(FirebaseFirestore.instance);
+
+    /// (Ne pas remettre le mock, sinon rien n’est écrit dans la base)
+    /// _orderService = MockOrderService();
   }
 
   int get _subtotal {
@@ -66,12 +62,10 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
 
     final user = fa.FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // ⚠️ Adapte cette navigation à ta `LoginPage`
+      // ⚠️ Adapte la redirection si besoin (LoginPage)
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Veuillez vous connecter pour continuer.')),
       );
-      // Exemple:
-      // Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginPage()));
       return;
     }
 
@@ -86,8 +80,9 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
       }
     }
 
+    // --- Construction de l'ordre ---
     final order = LaundryOrder(
-      id: '',
+      id: '', // non utilisé à l’écriture (généré par Firestore)
       userId: user.uid,
       items: selected,
       express: _express,
@@ -99,22 +94,32 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
       phone: pickup.phone,
       pickupAt: pickup.pickupAt,
       notes: pickup.notes,
-      createdAt: DateTime.now(),
+      createdAt: DateTime.now(), // sera remplacé par serverTimestamp (voir service)
       status: 'pending',
     );
 
     setState(() => _submitting = true);
     try {
+      // 📝 Optionnel : forcer createdAt côté serveur (voir service juste après)
+      // Tu peux soit le faire ici, soit directement dans le service.
       final id = await _orderService.createOrder(order);
+      debugPrint('ORDER_CREATED id=$id total=${order.total} pickupAt=${order.pickupAt}');
+
       if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Commande enregistrée: $id')),
+      );
+
       Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => OrderConfirmationPage(orderId: id)),
       );
+
       setState(() {
         _quantities.clear();
         _express = false;
       });
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('ORDER_CREATE_ERROR: $e\n$st');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur: $e')),
       );
