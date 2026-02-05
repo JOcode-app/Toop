@@ -4,6 +4,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'login_page.dart';
 import 'home_page.dart';
+import 'pages/estimate_costs_page.dart';
+import 'pages/about_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,11 +28,15 @@ class PressingApp extends StatelessWidget {
         useMaterial3: false,
         scaffoldBackgroundColor: Colors.white,
       ),
+
+      // --- ROUTES DE L'APPLICATION ---
       initialRoute: '/',
       routes: {
         '/': (_) => const StartScreen(),
         '/login': (_) => const LoginPage(),
         '/home': (_) => const HomePage(),
+        '/prices': (_) => const EstimateCostsPage(),
+        '/about': (_) => const AboutPage(),
       },
     );
   }
@@ -51,6 +58,8 @@ class StartScreen extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 40),
+
+            // LOGO
             Expanded(
               child: Center(
                 child: Image.asset(
@@ -60,6 +69,7 @@ class StartScreen extends StatelessWidget {
                 ),
               ),
             ),
+
             const Text(
               'TOO PRESSING',
               style: TextStyle(
@@ -75,16 +85,14 @@ class StartScreen extends StatelessWidget {
             ),
             const SizedBox(height: 25),
 
-            // --- BOUTON DÉMARRER -> HOME PAGE ---
+            // --- BOUTON DÉMARRER ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: SizedBox(
                 height: 56,
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/home');
-                  },
+                  onPressed: () => Navigator.pushNamed(context, '/home'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryBlue,
                     shape: RoundedRectangleBorder(
@@ -101,20 +109,20 @@ class StartScreen extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // --- BOUTON CONNEXION -> LoginPage ---
+            // --- BOUTON CONNEXION ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: SizedBox(
                 height: 56,
                 width: double.infinity,
                 child: ElevatedButton(
+                  onPressed: () => Navigator.pushNamed(context, '/login'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: deepBlue,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  onPressed: () => Navigator.pushNamed(context, '/login'),
                   child: const Text(
                     'Connexion',
                     style: TextStyle(fontSize: 17, color: Colors.white),
@@ -124,6 +132,8 @@ class StartScreen extends StatelessWidget {
             ),
 
             const SizedBox(height: 20),
+
+            // --- BOUTONS PRIX + COORDONNÉES ---
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
@@ -132,7 +142,9 @@ class StartScreen extends StatelessWidget {
                     child: _SmallButton(
                       label: 'Prix',
                       icon: Icons.attach_money,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.pushNamed(context, '/prices');
+                      },
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -140,20 +152,34 @@ class StartScreen extends StatelessWidget {
                     child: _SmallButton(
                       label: 'Coordonnées',
                       icon: Icons.info_outline,
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.pushNamed(context, '/about');
+                      },
                     ),
                   ),
                 ],
               ),
             ),
+
             const SizedBox(height: 20),
-            TextButton(
-              onPressed: () {},
-              child: const Text(
-                'Choisir un autre magasin',
-                style: TextStyle(color: textGrey, fontSize: 14),
-              ),
-            ),
+
+            
+              TextButton(
+                onPressed: () async {
+                    const url = "https://www.facebook.com/search/top/?q=too%20pressing";
+                      final uri = Uri.parse(url);
+
+                      if (await canLaunchUrl(uri)) {
+                       await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
+                      },
+                        child: const Text(
+                          'Nous suivre sur Facebook',
+                            style: TextStyle(color: textGrey, fontSize: 14),
+                             ),
+                              ),
+
+
             const SizedBox(height: 20),
           ],
         ),
@@ -194,7 +220,8 @@ class _SmallButton extends StatelessWidget {
               label,
               style: const TextStyle(
                 color: Color(0xFF9AA3AF),
-                fontWeight: FontWeight.w600),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),

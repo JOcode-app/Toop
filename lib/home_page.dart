@@ -29,7 +29,7 @@ class HomePage extends StatelessWidget {
           tooltip: 'Retour',
         ),
         title: const Text(
-          "L'application qui prend soin de votre linge",
+          'TOO PRESSING',
           style: TextStyle(color: Colors.black87, fontSize: 14, fontWeight: FontWeight.w600),
           textAlign: TextAlign.center,
         ),
@@ -37,11 +37,17 @@ class HomePage extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // -------------------- HERO --------------------
-            _HeroHeader(
-              height: size.height * 0.20,
-              title: "Fini la corvée de lessive !",
-              image: const AssetImage('assets/hero_laundry.png'), // .jpg si c'est ton fichier
+            // -------------------- HERO (carrousel) --------------------
+            _HeroCarousel(
+              height: size.height * 0.19,
+              title: 'Fini la corvée de lessive !',
+              images: const [
+                AssetImage('assets/hero_laundry_1.png'),
+                AssetImage('assets/hero_laundry_2.png'),
+                AssetImage('assets/hero_laundry_3.png'),
+                AssetImage('assets/hero_laundry_4.png'),
+              ],
+              autoPlayInterval: const Duration(seconds: 3), // défilement toutes les 2s
             ),
 
             // -------------------- CARTE PRINCIPALE --------------------
@@ -66,7 +72,7 @@ class HomePage extends StatelessWidget {
 
                   // ---------- Services ----------
                   const Text(
-                    "Coup d’œil",
+                    'Coup d’œil',
                     style: TextStyle(
                       color: Colors.black87,
                       fontSize: 15,
@@ -82,7 +88,7 @@ class HomePage extends StatelessWidget {
                       children: [
                         _ServicePill(
                           icon: Icons.verified_user_outlined,
-                          title: "À\npropos",
+                          title: 'À\npropos',
                           onTap: () {
                             Navigator.push(
                               context,
@@ -92,7 +98,7 @@ class HomePage extends StatelessWidget {
                         ),
                         _ServicePill(
                           icon: Icons.receipt_long_outlined,
-                          title: "Mes\ncommandes",
+                          title: 'Mes\ncommandes',
                           onTap: () {
                             Navigator.push(
                               context,
@@ -102,7 +108,7 @@ class HomePage extends StatelessWidget {
                         ),
                         _ServicePill(
                           icon: Icons.local_atm_outlined,
-                          title: "Estimer\nles coûts",
+                          title: 'Estimer\nles coûts',
                           onTap: () {
                             Navigator.push(
                               context,
@@ -119,7 +125,7 @@ class HomePage extends StatelessWidget {
                   const SizedBox(height: 14),
 
                   // ---------- Comment ça marche ----------
-                  const _SectionTitle(title: "Comment ça marche ? (Étapes simples)"),
+                  const _SectionTitle(title: 'Comment ça marche ? (Étapes simples)'),
                   const SizedBox(height: 10),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12),
@@ -128,7 +134,7 @@ class HomePage extends StatelessWidget {
                         Expanded(
                           child: _StepCard(
                             stepNumber: 1,
-                            title: "Collecte à\nDomicile",
+                            title: 'Collecte à\nDomicile',
                             image: AssetImage('assets/step_1.png'),
                           ),
                         ),
@@ -136,7 +142,7 @@ class HomePage extends StatelessWidget {
                         Expanded(
                           child: _StepCard(
                             stepNumber: 2,
-                            title: "Lavage\nProfessionnel",
+                            title: 'Lavage\nProfessionnel',
                             image: AssetImage('assets/step_2.png'),
                           ),
                         ),
@@ -144,7 +150,7 @@ class HomePage extends StatelessWidget {
                         Expanded(
                           child: _StepCard(
                             stepNumber: 3,
-                            title: "Livraison\nImpeccable",
+                            title: 'Livraison\nImpeccable',
                             image: AssetImage('assets/step_3.png'),
                           ),
                         ),
@@ -154,14 +160,14 @@ class HomePage extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   // ---------- Pourquoi nous choisir ----------
-                  const _SectionTitle(title: "Pourquoi nous choisir ?"),
+                  const _SectionTitle(title: 'Pourquoi nous choisir ?'),
                   const SizedBox(height: 8),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 16),
                     child: _BulletList(items: [
-                      "Simplicité",
-                      "Qualité garantie",
-                      "Rapidité et fiabilité",
+                      'Simplicité',
+                      'Qualité garantie',
+                      'Rapidité et fiabilité',
                     ]),
                   ),
                   const SizedBox(height: 18),
@@ -174,7 +180,7 @@ class HomePage extends StatelessWidget {
                       height: 52,
                       child: ElevatedButton(
                         onPressed: () {
-                          // Tu peux diriger vers EstimateCostsPage directement :
+                          // Redirige par exemple vers l’estimation
                           Navigator.push(
                             context,
                             MaterialPageRoute(builder: (_) => const EstimateCostsPage()),
@@ -188,7 +194,7 @@ class HomePage extends StatelessWidget {
                           elevation: 0,
                         ),
                         child: const Text(
-                          "Planifier une collecte",
+                          'Planifier une collecte',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 16.5,
@@ -221,68 +227,100 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class _HeroHeader extends StatelessWidget {
+// ---------------------------------------------------------
+// Widgets internes (Section title, Service pill, Step card…)
+// ---------------------------------------------------------
+
+class _HeroCarousel extends StatefulWidget {
   final double height;
   final String title;
-  final ImageProvider? image;
+  final List<ImageProvider> images;
+  final Duration autoPlayInterval;
 
-  const _HeroHeader({
+  const _HeroCarousel({
     required this.height,
     required this.title,
-    this.image,
+    required this.images,
+    required this.autoPlayInterval,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final placeholder = Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFBFD4FF), Color(0xFFE7EEFF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-    );
+  State<_HeroCarousel> createState() => _HeroCarouselState();
+}
 
-    return ClipRRect(
-      borderRadius: const BorderRadius.only(
-        bottomLeft: Radius.circular(22),
-        bottomRight: Radius.circular(22),
-      ),
+class _HeroCarouselState extends State<_HeroCarousel> {
+  late PageController _pageController;
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _startAutoPlay();
+  }
+
+  void _startAutoPlay() {
+    Future.delayed(widget.autoPlayInterval, () {
+      if (mounted) {
+        _pageController.nextPage(
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+        _startAutoPlay();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: widget.height,
+      color: HomePage.softBg,
       child: Stack(
         children: [
-          SizedBox(
-            height: height,
-            width: double.infinity,
-            child: image != null
-                ? Image(image: image!, fit: BoxFit.cover) // passe à contain si besoin
-                : placeholder,
-          ),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.black.withOpacity(0.45),
-                    Colors.black.withOpacity(0.10),
-                  ],
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.center,
-                ),
-              ),
-            ),
+          PageView(
+            controller: _pageController,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index % widget.images.length;
+              });
+            },
+            children: widget.images
+                .map(
+                  (image) => Image(
+                    image: image,
+                    fit: BoxFit.cover,
+                  ),
+                )
+                .toList(),
           ),
           Positioned(
-            left: 18,
-            bottom: 18,
-            right: 18,
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                height: 1.1,
-                fontWeight: FontWeight.w900,
+            bottom: 12,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  widget.images.length,
+                  (index) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _currentIndex == index
+                          ? HomePage.primaryBlue
+                          : Colors.grey.withOpacity(0.4),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -397,7 +435,7 @@ class _StepCard extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          "$stepNumber. $title",
+          '$stepNumber. $title',
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: Colors.black87,

@@ -14,7 +14,7 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
     Item(name: 'Pantalon', price: 400),
     Item(name: 'Robe', price: 500),
     Item(name: 'Costume', price: 1500),
-    Item(name: 'Draps', price: 300),
+    Item(name: 'Draps', price: 500),
     Item(name: 'Couette', price: 800),
     Item(name: 'Chaussures', price: 1500),
   ];
@@ -155,7 +155,7 @@ class _RowAmount extends StatelessWidget {
       children: [
         Text(label, style: style),
         const Spacer(),
-        Text('${amount} FCFA', style: style),
+        Text('$amount FCFA', style: style),
       ],
     );
   }

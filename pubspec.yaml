@@ -43,7 +43,11 @@ flutter:
   assets:
     - assets/logo_collar.png
     - assets/icon/app_icon.png
-    - assets/hero_laundry.png
     - assets/step_1.png
     - assets/step_2.png
     - assets/step_3.png
+
+    - assets/hero_laundry_1.png
+    - assets/hero_laundry_2.png
+    - assets/hero_laundry_3.png
+    - assets/hero_laundry_4.png
