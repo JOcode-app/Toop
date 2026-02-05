@@ -5,9 +5,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/order_pickup_sheet.dart';
 import '../pages/order_confirmation_page.dart';
 
-// === Services ===
+// Services
 import '../services/order_service.dart';
-import '../services/order_service_firestore.dart'; // <-- on utilise Firestore
+import '../services/order_service_firestore.dart';
 
 class EstimateCostsPage extends StatefulWidget {
   const EstimateCostsPage({super.key});
@@ -17,16 +17,7 @@ class EstimateCostsPage extends StatefulWidget {
 }
 
 class _EstimateCostsPageState extends State<EstimateCostsPage> {
-  final List<Item> _items = const [
-    Item(name: 'Chemise', price: 300),
-    Item(name: 'Pantalon', price: 400),
-    Item(name: 'Robe', price: 500),
-    Item(name: 'Costume', price: 1500),
-    Item(name: 'Draps', price: 500),
-    Item(name: 'Couette', price: 800),
-    Item(name: 'Chaussures', price: 1500),
-  ];
-
+  /// Quantités choisies par article (clé = doc.id)
   final Map<String, int> _quantities = {};
   bool _express = false;
   bool _submitting = false;
@@ -36,33 +27,30 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
   @override
   void initState() {
     super.initState();
-
-    /// ✅ Active l’écriture dans Firestore
     _orderService = FirestoreOrderService(FirebaseFirestore.instance);
-
-    /// (Ne pas remettre le mock, sinon rien n’est écrit dans la base)
-    /// _orderService = MockOrderService();
   }
 
-  int get _subtotal {
+  // ---- Calculs dynamiques ----
+  int _subtotalFrom(List<_Article> arts) {
     int total = 0;
-    for (final it in _items) {
-      final q = _quantities[it.name] ?? 0;
-      total += it.price * q;
+    for (final a in arts) {
+      final q = _quantities[a.id] ?? 0;
+      total += a.price * q;
     }
     return total;
   }
 
-  int get _feeExpress => _express ? ((_subtotal * 15) ~/ 100) : 0;
-  int get _pickupDelivery => _subtotal > 0 ? 1000 : 0;
-  int get _total => _subtotal + _feeExpress + _pickupDelivery;
+  int _feeExpressFrom(int subtotal) => _express ? ((subtotal * 15) ~/ 100) : 0;
+  int _pickupDeliveryFrom(int subtotal) => subtotal > 0 ? 1000 : 0;
+  int _totalFrom(int subtotal) => subtotal + _feeExpressFrom(subtotal) + _pickupDeliveryFrom(subtotal);
 
-  Future<void> _onCreateOrder() async {
-    if (_subtotal == 0) return;
+  // ---- Création de commande ----
+  Future<void> _onCreateOrder(List<_Article> arts) async {
+    final subtotal = _subtotalFrom(arts);
+    if (subtotal == 0) return;
 
     final user = fa.FirebaseAuth.instance.currentUser;
     if (user == null) {
-      // ⚠️ Adapte la redirection si besoin (LoginPage)
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Veuillez vous connecter pour continuer.')),
       );
@@ -73,39 +61,40 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
     if (pickup == null) return;
 
     final selected = <OrderItem>[];
-    for (final it in _items) {
-      final q = _quantities[it.name] ?? 0;
+    for (final a in arts) {
+      final q = _quantities[a.id] ?? 0;
       if (q > 0) {
-        selected.add(OrderItem(name: it.name, unitPrice: it.price, quantity: q));
+        selected.add(OrderItem(name: a.name, unitPrice: a.price, quantity: q));
       }
     }
 
-    // --- Construction de l'ordre ---
+    final subtotal2 = _subtotalFrom(arts);
+    final feeExpress = _feeExpressFrom(subtotal2);
+    final pickupFee = _pickupDeliveryFrom(subtotal2);
+    final total = _totalFrom(subtotal2);
+
     final order = LaundryOrder(
-      id: '', // non utilisé à l’écriture (généré par Firestore)
+      id: '',
       userId: user.uid,
       items: selected,
       express: _express,
-      subtotal: _subtotal,
-      expressFee: _feeExpress,
-      pickupDeliveryFee: _pickupDelivery,
-      total: _total,
+      subtotal: subtotal2,
+      expressFee: feeExpress,
+      pickupDeliveryFee: pickupFee,
+      total: total,
       address: pickup.address,
       phone: pickup.phone,
       pickupAt: pickup.pickupAt,
       notes: pickup.notes,
-      createdAt: DateTime.now(), // sera remplacé par serverTimestamp (voir service)
+      createdAt: DateTime.now(), // sera remplacé côté service par serverTimestamp
       status: 'pending',
     );
 
     setState(() => _submitting = true);
     try {
-      // 📝 Optionnel : forcer createdAt côté serveur (voir service juste après)
-      // Tu peux soit le faire ici, soit directement dans le service.
       final id = await _orderService.createOrder(order);
-      debugPrint('ORDER_CREATED id=$id total=${order.total} pickupAt=${order.pickupAt}');
-
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Commande enregistrée: $id')),
       );
@@ -120,9 +109,11 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
       });
     } catch (e, st) {
       debugPrint('ORDER_CREATE_ERROR: $e\n$st');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -130,8 +121,6 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final canSubmit = _subtotal > 0 && !_submitting;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("Estimer les coûts"),
@@ -140,93 +129,138 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
         elevation: 0.5,
         foregroundColor: Colors.black87,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: _items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, i) {
-                final it = _items[i];
-                final q = _quantities[it.name] ?? 0;
-                return Material(
-                  color: Colors.white,
-                  elevation: 0.5,
-                  borderRadius: BorderRadius.circular(12),
-                  child: ListTile(
-                    title: Text(it.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                    subtitle: Text('${it.price} FCFA / unité'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          onPressed: q > 0 ? () => setState(() => _quantities[it.name] = q - 1) : null,
-                          icon: const Icon(Icons.remove_circle_outline),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance
+            .collection('articles')
+            .orderBy('name')
+            .snapshots(),
+        builder: (context, snap) {
+          if (snap.hasError) return Center(child: Text('Erreur: ${snap.error}'));
+          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+
+          final docs = snap.data!.docs;
+          final articles = docs.map((d) => _Article.fromDoc(d)).where((a) => a.price > 0 && a.name.isNotEmpty).toList();
+
+          if (articles.isEmpty) {
+            return const _EmptyArticlesNotice();
+          }
+
+          final subtotal = _subtotalFrom(articles);
+          final feeExpress = _feeExpressFrom(subtotal);
+          final pickupFee = _pickupDeliveryFrom(subtotal);
+          final total = _totalFrom(subtotal);
+          final canSubmit = subtotal > 0 && !_submitting;
+
+          return Column(
+            children: [
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: articles.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) {
+                    final it = articles[i];
+                    final q = _quantities[it.id] ?? 0;
+                    return Material(
+                      color: Colors.white,
+                      elevation: 0.5,
+                      borderRadius: BorderRadius.circular(12),
+                      child: ListTile(
+                        title: Text(it.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                        subtitle: Text('${it.price} FCFA / unité'
+                            '${it.category.isNotEmpty ? '  •  ${it.category}' : ''}'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              onPressed: q > 0 ? () => setState(() => _quantities[it.id] = q - 1) : null,
+                              icon: const Icon(Icons.remove_circle_outline),
+                            ),
+                            Text('$q', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                            IconButton(
+                              onPressed: () => setState(() => _quantities[it.id] = q + 1),
+                              icon: const Icon(Icons.add_circle_outline),
+                            ),
+                          ],
                         ),
-                        Text('$q', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                        IconButton(
-                          onPressed: () => setState(() => _quantities[it.name] = q + 1),
-                          icon: const Icon(Icons.add_circle_outline),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      title: const Text('Option express (+15%)'),
+                      value: _express,
+                      onChanged: (v) => setState(() => _express = v),
+                    ),
+                    const SizedBox(height: 6),
+                    _RowAmount(label: 'Sous-total', amount: subtotal),
+                    _RowAmount(label: 'Express', amount: feeExpress),
+                    _RowAmount(label: 'Collecte & livraison', amount: pickupFee),
+                    const SizedBox(height: 8),
+                    const Divider(height: 1),
+                    const SizedBox(height: 8),
+                    _RowAmount(label: 'Total estimé', amount: total, bold: true),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: canSubmit ? () => _onCreateOrder(articles) : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF123252),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
                         ),
-                      ],
+                        child: _submitting
+                            ? const SizedBox(
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Text('Planifier une collecte'),
+                      ),
                     ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-            child: Column(
-              children: [
-                SwitchListTile(
-                  title: const Text('Option express (+15%)'),
-                  value: _express,
-                  onChanged: (v) => setState(() => _express = v),
+                  ],
                 ),
-                const SizedBox(height: 6),
-                _RowAmount(label: 'Sous-total', amount: _subtotal),
-                _RowAmount(label: 'Express', amount: _feeExpress),
-                _RowAmount(label: 'Collecte & livraison', amount: _pickupDelivery),
-                const SizedBox(height: 8),
-                const Divider(height: 1),
-                const SizedBox(height: 8),
-                _RowAmount(label: 'Total estimé', amount: _total, bold: true),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: canSubmit ? _onCreateOrder : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF123252),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 0,
-                    ),
-                    child: _submitting
-                        ? const SizedBox(
-                            height: 22, width: 22,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                          )
-                        : const Text('Planifier une collecte'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-        ],
+              ),
+              const SizedBox(height: 10),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-class Item {
+// ---- Modèle local pour un article Firestore ----
+class _Article {
+  final String id;
   final String name;
   final int price;
-  const Item({required this.name, required this.price});
+  final String category;
+
+  _Article({
+    required this.id,
+    required this.name,
+    required this.price,
+    required this.category,
+  });
+
+  factory _Article.fromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data();
+    return _Article(
+      id: doc.id,
+      name: (d['name'] as String?)?.trim() ?? '',
+      price: (d['price'] as num?)?.toInt() ?? 0,
+      category: (d['category'] as String?)?.trim() ?? '',
+    );
+  }
 }
 
 class _RowAmount extends StatelessWidget {
@@ -247,6 +281,31 @@ class _RowAmount extends StatelessWidget {
         const Spacer(),
         Text('$amount FCFA', style: style),
       ],
+    );
+  }
+}
+
+class _EmptyArticlesNotice extends StatelessWidget {
+  const _EmptyArticlesNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(28.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inventory_2_outlined, size: 42, color: Color(0xFF9AA3AF)),
+            SizedBox(height: 10),
+            Text(
+              "Aucun article disponible.\nAjoute des articles dans l’espace Admin > Articles & Prix.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF6B7280)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
