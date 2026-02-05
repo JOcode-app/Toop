@@ -1,17 +1,22 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fa;
+
 import 'services/auth_service.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
 
-  // Couleurs UI
+  // === Constantes & UI ===
+  static const String kAdminEmail = 'gnouangui.joel@gmail.com';
+
   static const Color deepBlue = Color(0xFF123252);
   static const Color googleBlue = Color(0xFF4285F4);
   static const Color emailGreen = Color(0xFF34A853);
   static const Color chipGrey = Color(0xFFF1F3F5);
   static const Color textGrey = Color(0xFF6B7280);
 
+  /// Ouvre un loader, exécute [action], ferme le loader, puis route selon email.
   Future<void> _handleAuth(
     BuildContext context, {
     required Future<void> Function() action,
@@ -24,20 +29,48 @@ class LoginPage extends StatelessWidget {
 
     try {
       await action();
-      if (context.mounted) {
-        Navigator.of(context).pop(); // ferme le loader
+
+      if (!context.mounted) return;
+      Navigator.of(context).pop(); // ferme le loader
+
+      final user = fa.FirebaseAuth.instance.currentUser;
+      final email = (user?.email ?? '').toLowerCase();
+
+      if (email == kAdminEmail.toLowerCase()) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/admin', (r) => false);
+      } else {
         Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false);
       }
     } catch (e) {
       if (context.mounted) {
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(); // ferme le loader si erreur
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Échec de la connexion. Veuillez réessayer.'),
+          SnackBar(
+            content: Text('Échec de la connexion: ${_readableAuthError(e)}'),
           ),
         );
       }
     }
+  }
+
+  String _readableAuthError(Object e) {
+    if (e is fa.FirebaseAuthException) {
+      switch (e.code) {
+        case 'user-not-found':
+          return 'Utilisateur introuvable';
+        case 'wrong-password':
+          return 'Mot de passe incorrect';
+        case 'invalid-email':
+          return 'Email invalide';
+        case 'account-exists-with-different-credential':
+          return 'Ce compte existe avec un autre mode de connexion';
+        case 'network-request-failed':
+          return 'Problème de connexion réseau';
+        default:
+          return e.message ?? e.code;
+      }
+    }
+    return e.toString();
   }
 
   @override
@@ -83,6 +116,7 @@ class LoginPage extends StatelessWidget {
               ),
               const SizedBox(height: 18),
 
+              // Bandeau d’info
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -104,7 +138,7 @@ class LoginPage extends StatelessWidget {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Veuillez-vous connecter ou créer un compte pour passer votre commande.\nPlease login or create an account to place your …',
+                      'Veuillez-vous connecter ou créer un compte pour passer votre commande.',
                       style: TextStyle(fontSize: 14, color: textGrey, height: 1.35),
                     ),
                     SizedBox(height: 6),
@@ -125,7 +159,7 @@ class LoginPage extends StatelessWidget {
               // --- GOOGLE ---
               _SocialButton(
                 color: googleBlue,
-                icon: Icons.g_mobiledata, // Tu peux remplacer par une icône Google officielle (asset)
+                icon: Icons.g_mobiledata, // Remplace par un asset Google si tu veux
                 label: "Se connecter avec Google",
                 onPressed: () {
                   _handleAuth(
@@ -264,6 +298,8 @@ class _EmailAuthViewState extends State<_EmailAuthView> {
   bool _obscure = true;
   bool _loading = false;
 
+  static const String kAdminEmail = LoginPage.kAdminEmail;
+
   @override
   void dispose() {
     _emailCtrl.dispose();
@@ -290,15 +326,30 @@ class _EmailAuthViewState extends State<_EmailAuthView> {
         );
       }
 
-      if (mounted) {
+      if (!mounted) return;
+
+      final user = fa.FirebaseAuth.instance.currentUser;
+      final mail = (user?.email ?? '').toLowerCase();
+
+      if (mail == kAdminEmail.toLowerCase()) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/admin', (r) => false);
+      } else {
         Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false);
       }
-    } on Exception catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: ${e.toString()}')),
-        );
-      }
+    } on fa.FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      String msg = e.message ?? e.code;
+      if (e.code == 'user-not-found') msg = 'Utilisateur introuvable';
+      if (e.code == 'wrong-password') msg = 'Mot de passe incorrect';
+      if (e.code == 'email-already-in-use') msg = 'Email déjà utilisé';
+      if (e.code == 'invalid-email') msg = 'Email invalide';
+      if (e.code == 'weak-password') msg = 'Mot de passe trop faible (min. 6 caractères)';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -306,8 +357,10 @@ class _EmailAuthViewState extends State<_EmailAuthView> {
 
   @override
   Widget build(BuildContext context) {
+    final title = _isLogin ? 'Connexion' : 'Création de compte';
+
     return Scaffold(
-      appBar: AppBar(title: Text(_isLogin ? 'Connexion' : 'Création de compte')),
+      appBar: AppBar(title: Text(title)),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -333,6 +386,7 @@ class _EmailAuthViewState extends State<_EmailAuthView> {
                     },
                   ),
                   const SizedBox(height: 12),
+
                   TextFormField(
                     controller: _passwordCtrl,
                     autofillHints: const [AutofillHints.password],
@@ -353,6 +407,7 @@ class _EmailAuthViewState extends State<_EmailAuthView> {
                       return null;
                     },
                   ),
+
                   if (!_isLogin) ...[
                     const SizedBox(height: 12),
                     TextFormField(
@@ -370,7 +425,9 @@ class _EmailAuthViewState extends State<_EmailAuthView> {
                       },
                     ),
                   ],
+
                   const SizedBox(height: 16),
+
                   SizedBox(
                     width: double.infinity,
                     height: 52,
@@ -385,6 +442,7 @@ class _EmailAuthViewState extends State<_EmailAuthView> {
                           : Text(_isLogin ? 'Se connecter' : 'Créer un compte'),
                     ),
                   ),
+
                   const SizedBox(height: 10),
                   TextButton(
                     onPressed: _loading ? null : () => setState(() => _isLogin = !_isLogin),

@@ -1,4 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fa;
+
+import '../widgets/order_pickup_sheet.dart';
+import '../pages/order_confirmation_page.dart';
+
+// === Services ===
+// 1) MOCK (sans Firestore) :
+import '../services/order_service.dart';
+import '../services/order_service_mock.dart';
+
+// 2) FIRESTORE (si tu veux enregistrer dans la base) :
+// import 'package:cloud_firestore/cloud_firestore.dart';
+// import '../services/order_service_firestore.dart';
+// import 'package:firebase_core/firebase_core.dart'; // si besoin d'init
 
 class EstimateCostsPage extends StatefulWidget {
   const EstimateCostsPage({super.key});
@@ -8,8 +22,7 @@ class EstimateCostsPage extends StatefulWidget {
 }
 
 class _EstimateCostsPageState extends State<EstimateCostsPage> {
-  // Mini catalogue (exemple). Tu pourras brancher sur Firestore ensuite.
-  final List<Item> _items = [
+  final List<Item> _items = const [
     Item(name: 'Chemise', price: 300),
     Item(name: 'Pantalon', price: 400),
     Item(name: 'Robe', price: 500),
@@ -19,8 +32,21 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
     Item(name: 'Chaussures', price: 1500),
   ];
 
-  final Map<String, int> _quantities = {}; // name -> qty
+  final Map<String, int> _quantities = {};
   bool _express = false;
+  bool _submitting = false;
+
+  late final OrderService _orderService;
+
+  @override
+  void initState() {
+    super.initState();
+    // Choix du service :
+    _orderService = MockOrderService(); // fonctionne immédiatement
+
+    // Si tu veux Firestore ensuite :
+    // _orderService = FirestoreOrderService(FirebaseFirestore.instance);
+  }
 
   int get _subtotal {
     int total = 0;
@@ -31,12 +57,76 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
     return total;
   }
 
-  int get _feeExpress => _express ? ((_subtotal * 15) ~/ 100) : 0; // +15% express
-  int get _pickupDelivery => _subtotal > 0 ? 1000 : 0; // forfait 1000 FCFA
+  int get _feeExpress => _express ? ((_subtotal * 15) ~/ 100) : 0;
+  int get _pickupDelivery => _subtotal > 0 ? 1000 : 0;
   int get _total => _subtotal + _feeExpress + _pickupDelivery;
+
+  Future<void> _onCreateOrder() async {
+    if (_subtotal == 0) return;
+
+    final user = fa.FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // ⚠️ Adapte cette navigation à ta `LoginPage`
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez vous connecter pour continuer.')),
+      );
+      // Exemple:
+      // Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoginPage()));
+      return;
+    }
+
+    final pickup = await showPickupSheet(context);
+    if (pickup == null) return;
+
+    final selected = <OrderItem>[];
+    for (final it in _items) {
+      final q = _quantities[it.name] ?? 0;
+      if (q > 0) {
+        selected.add(OrderItem(name: it.name, unitPrice: it.price, quantity: q));
+      }
+    }
+
+    final order = LaundryOrder(
+      id: '',
+      userId: user.uid,
+      items: selected,
+      express: _express,
+      subtotal: _subtotal,
+      expressFee: _feeExpress,
+      pickupDeliveryFee: _pickupDelivery,
+      total: _total,
+      address: pickup.address,
+      phone: pickup.phone,
+      pickupAt: pickup.pickupAt,
+      notes: pickup.notes,
+      createdAt: DateTime.now(),
+      status: 'pending',
+    );
+
+    setState(() => _submitting = true);
+    try {
+      final id = await _orderService.createOrder(order);
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => OrderConfirmationPage(orderId: id)),
+      );
+      setState(() {
+        _quantities.clear();
+        _express = false;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final canSubmit = _subtotal > 0 && !_submitting;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Estimer les coûts"),
@@ -66,9 +156,7 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          onPressed: q > 0
-                              ? () => setState(() => _quantities[it.name] = q - 1)
-                              : null,
+                          onPressed: q > 0 ? () => setState(() => _quantities[it.name] = q - 1) : null,
                           icon: const Icon(Icons.remove_circle_outline),
                         ),
                         Text('$q', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
@@ -84,7 +172,6 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
             ),
           ),
           const Divider(height: 1),
-          // Options + récap
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
             child: Column(
@@ -107,20 +194,18 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: _subtotal == 0
-                        ? null
-                        : () {
-                            // TODO: si pas connecté, rediriger vers login
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Création de commande (à implémenter)')),
-                            );
-                          },
+                    onPressed: canSubmit ? _onCreateOrder : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF123252),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 0,
                     ),
-                    child: const Text('Planifier une collecte'),
+                    child: _submitting
+                        ? const SizedBox(
+                            height: 22, width: 22,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Text('Planifier une collecte'),
                   ),
                 ),
               ],
@@ -136,7 +221,7 @@ class _EstimateCostsPageState extends State<EstimateCostsPage> {
 class Item {
   final String name;
   final int price;
-  Item({required this.name, required this.price});
+  const Item({required this.name, required this.price});
 }
 
 class _RowAmount extends StatelessWidget {

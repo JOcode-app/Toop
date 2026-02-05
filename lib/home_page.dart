@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:characters/characters.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fa;
+
 import 'package:pressing_too/pages/about_page.dart';
 import 'package:pressing_too/pages/orders_page.dart';
 import 'package:pressing_too/pages/estimate_costs_page.dart';
+import 'package:pressing_too/widgets/edit_profile_sheet.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -13,222 +17,308 @@ class HomePage extends StatelessWidget {
   static const Color textGrey = Color(0xFF6B7280);
   static const Color chipBg = Color(0xFFF1F3F5);
 
+  String _displayName(fa.User? u) {
+    if (u == null) return 'Utilisateur';
+    final name = u.displayName?.trim();
+    if (name != null && name.isNotEmpty) return name;
+    final email = u.email?.trim();
+    if (email != null && email.isNotEmpty) {
+      final beforeAt = email.split('@').first;
+      return beforeAt.isNotEmpty ? beforeAt : 'Utilisateur';
+    }
+    return 'Utilisateur';
+  }
+
+  String _initialsFromUser(fa.User? u) {
+    if (u == null) return 'U';
+    final name = u.displayName?.trim();
+    if (name != null && name.isNotEmpty) {
+      return _initialsFromText(name);
+    }
+    final email = u.email?.trim();
+    if (email != null && email.isNotEmpty) {
+      return _initialsFromText(email.split('@').first);
+    }
+    return 'U';
+  }
+
+  // Extrait 1–2 initiales de façon robuste (UTF-16/graphemes via `characters`)
+  String _initialsFromText(String text) {
+    final parts = text.trim().split(RegExp(r'\s+'));
+    String first = '';
+    String last = '';
+    if (parts.isNotEmpty && parts.first.isNotEmpty) {
+      first = parts.first.characters.take(1).toString();
+    }
+    if (parts.length > 1 && parts.last.isNotEmpty) {
+      last = parts.last.characters.take(1).toString();
+    }
+    String ini = (first + last).toUpperCase();
+    if (ini.isEmpty && text.isNotEmpty) {
+      ini = text.characters.take(2).toString().toUpperCase();
+    }
+    return ini.isEmpty ? 'U' : ini;
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        elevation: 0.5,
-        backgroundColor: Colors.white,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black87, size: 18),
-          onPressed: () => Navigator.pop(context),
-          tooltip: 'Retour',
-        ),
-        title: const Text(
-          'TOO PRESSING',
-          style: TextStyle(color: Colors.black87, fontSize: 14, fontWeight: FontWeight.w600),
-          textAlign: TextAlign.center,
-        ),
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // -------------------- HERO (carrousel) --------------------
-            _HeroCarousel(
-              height: size.height * 0.19,
-              title: 'Fini la corvée de lessive !',
-              images: const [
-                AssetImage('assets/hero_laundry_1.png'),
-                AssetImage('assets/hero_laundry_2.png'),
-                AssetImage('assets/hero_laundry_3.png'),
-                AssetImage('assets/hero_laundry_4.png'),
-              ],
-              autoPlayInterval: const Duration(seconds: 3), // défilement toutes les 2s
+    return StreamBuilder<fa.User?>(
+      stream: fa.FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snap) {
+        final user = snap.data;
+        final titleText = _displayName(user);
+        final initials = _initialsFromUser(user);
+        final photoURL = user?.photoURL;
+
+        Future<void> _openProfile() async {
+          await showEditProfileSheet(context);
+        }
+
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            elevation: 0.5,
+            backgroundColor: Colors.white,
+            centerTitle: true,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black87, size: 18),
+              onPressed: () => Navigator.pop(context),
+              tooltip: 'Retour',
             ),
-
-            // -------------------- CARTE PRINCIPALE --------------------
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              padding: const EdgeInsets.only(top: 16, bottom: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 14,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Column(
+            title: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: _openProfile,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(height: 4),
-
-                  // ---------- Services ----------
-                  const Text(
-                    'Coup d’œil',
-                    style: TextStyle(
-                      color: Colors.black87,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  // Avatar (photo ou initiales)
+                  CircleAvatar(
+                    radius: 14,
+                    backgroundColor: const Color(0xFFE8F0FF),
+                    backgroundImage: (photoURL != null && photoURL.isNotEmpty)
+                        ? NetworkImage(photoURL)
+                        : null,
+                    child: (photoURL == null || photoURL.isEmpty)
+                        ? Text(
+                            initials,
+                            style: const TextStyle(
+                              color: Color(0xFF2E5BFF),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          )
+                        : null,
                   ),
-                  const SizedBox(height: 16),
-
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _ServicePill(
-                          icon: Icons.verified_user_outlined,
-                          title: 'À\npropos',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const AboutPage()),
-                            );
-                          },
-                        ),
-                        _ServicePill(
-                          icon: Icons.receipt_long_outlined,
-                          title: 'Mes\ncommandes',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const OrdersPage()),
-                            );
-                          },
-                        ),
-                        _ServicePill(
-                          icon: Icons.local_atm_outlined,
-                          title: 'Estimer\nles coûts',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const EstimateCostsPage()),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 22),
-                  const Divider(height: 1, color: Color(0xFFE7EBF0)),
-                  const SizedBox(height: 14),
-
-                  // ---------- Comment ça marche ----------
-                  const _SectionTitle(title: 'Comment ça marche ? (Étapes simples)'),
-                  const SizedBox(height: 10),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _StepCard(
-                            stepNumber: 1,
-                            title: 'Collecte à\nDomicile',
-                            image: AssetImage('assets/step_1.png'),
-                          ),
-                        ),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: _StepCard(
-                            stepNumber: 2,
-                            title: 'Lavage\nProfessionnel',
-                            image: AssetImage('assets/step_2.png'),
-                          ),
-                        ),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: _StepCard(
-                            stepNumber: 3,
-                            title: 'Livraison\nImpeccable',
-                            image: AssetImage('assets/step_3.png'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // ---------- Pourquoi nous choisir ----------
-                  const _SectionTitle(title: 'Pourquoi nous choisir ?'),
-                  const SizedBox(height: 8),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: _BulletList(items: [
-                      'Simplicité',
-                      'Qualité garantie',
-                      'Rapidité et fiabilité',
-                    ]),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // ---------- CTA ----------
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // Redirige par exemple vers l’estimation
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const EstimateCostsPage()),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: deepBlue,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: const Text(
-                          'Planifier une collecte',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      titleText,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.black87,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
                 ],
               ),
             ),
+          ),
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                // -------------------- HERO (carrousel) --------------------
+                _HeroCarousel(
+                  height: size.height * 0.18,
+                  title: 'Fini la corvée de lessive !',
+                  images: const [
+                    AssetImage('assets/hero_laundry_1.png'),
+                    AssetImage('assets/hero_laundry_2.png'),
+                    AssetImage('assets/hero_laundry_3.png'),
+                    AssetImage('assets/hero_laundry_4.png'),
+                  ],
+                  autoPlayInterval: const Duration(seconds: 3),
+                ),
 
-            // ------- Bas de page doux ------
-            const SizedBox(height: 6),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              height: 6,
-              decoration: BoxDecoration(
-                color: chipBg,
-                borderRadius: BorderRadius.circular(100),
-              ),
+                // -------------------- CARTE PRINCIPALE --------------------
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.only(top: 16, bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 4),
+
+                      const Text(
+                        'BIENVENUE CHEZ TOO PRESSING',
+                        style: TextStyle(
+                          color: Colors.black87,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _ServicePill(
+                              icon: Icons.verified_user_outlined,
+                              title: 'À\npropos',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const AboutPage()),
+                                );
+                              },
+                            ),
+                            _ServicePill(
+                              icon: Icons.receipt_long_outlined,
+                              title: 'Mes\ncommandes',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const OrdersPage()),
+                                );
+                              },
+                            ),
+                            _ServicePill(
+                              icon: Icons.local_atm_outlined,
+                              title: 'Estimer\nles coûts',
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const EstimateCostsPage()),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 22),
+                      const Divider(height: 1, color: Color(0xFFE7EBF0)),
+                      const SizedBox(height: 14),
+
+                      const _SectionTitle(title: 'Comment ça marche ? (Étapes simples)'),
+                      const SizedBox(height: 10),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _StepCard(
+                                stepNumber: 1,
+                                title: 'Collecte à\nDomicile',
+                                image: AssetImage('assets/step_1.png'),
+                              ),
+                            ),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: _StepCard(
+                                stepNumber: 2,
+                                title: 'Lavage\nProfessionnel',
+                                image: AssetImage('assets/step_2.png'),
+                              ),
+                            ),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: _StepCard(
+                                stepNumber: 3,
+                                title: 'Livraison\nImpeccable',
+                                image: AssetImage('assets/step_3.png'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      const _SectionTitle(title: 'Pourquoi nous choisir ?'),
+                      const SizedBox(height: 8),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: _BulletList(items: [
+                          'Simplicité',
+                          'Qualité garantie',
+                          'Rapidité et fiabilité',
+                        ]),
+                      ),
+                      const SizedBox(height: 18),
+
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const EstimateCostsPage()),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: deepBlue,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: const Text(
+                              'Planifier une collecte',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: chipBg,
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                ),
+                const SizedBox(height: 18),
+              ],
             ),
-            const SizedBox(height: 18),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
 
 // ---------------------------------------------------------
-// Widgets internes (Section title, Service pill, Step card…)
+// Widgets internes (inchangés)
 // ---------------------------------------------------------
 
 class _HeroCarousel extends StatefulWidget {

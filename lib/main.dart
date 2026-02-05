@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fa;
+import 'package:url_launcher/url_launcher.dart';
 
 import 'firebase_options.dart';
+
+// Pages (selon ta structure)
 import 'login_page.dart';
 import 'home_page.dart';
 import 'pages/estimate_costs_page.dart';
 import 'pages/about_page.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'pages/admin_orders_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,14 +26,13 @@ class PressingApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
       title: 'TOO PRESSING',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: false,
         scaffoldBackgroundColor: Colors.white,
       ),
-
-      // --- ROUTES DE L'APPLICATION ---
+      // --- ROUTES ---
       initialRoute: '/',
       routes: {
         '/': (_) => const StartScreen(),
@@ -37,13 +40,46 @@ class PressingApp extends StatelessWidget {
         '/home': (_) => const HomePage(),
         '/prices': (_) => const EstimateCostsPage(),
         '/about': (_) => const AboutPage(),
+        '/admin': (_) => const AdminOrdersPage(),
       },
     );
   }
 }
 
-class StartScreen extends StatelessWidget {
+/// Écran d’accueil (logo + boutons)
+/// ➜ Redirige automatiquement si utilisateur déjà connecté :
+///    - email admin => /admin
+///    - sinon       => /home
+class StartScreen extends StatefulWidget {
   const StartScreen({super.key});
+
+  @override
+  State<StartScreen> createState() => _StartScreenState();
+}
+
+class _StartScreenState extends State<StartScreen> {
+  static const String _adminEmail = 'gnouangui.joel@gmail.com';
+
+  @override
+  void initState() {
+    super.initState();
+    _maybeRedirect();
+  }
+
+  Future<void> _maybeRedirect() async {
+    await Future.delayed(const Duration(milliseconds: 120)); // laisse Firebase init
+    final user = fa.FirebaseAuth.instance.currentUser;
+    if (!mounted || user == null) return;
+
+    final email = (user.email ?? '').toLowerCase();
+    if (email == _adminEmail.toLowerCase()) {
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil('/admin', (r) => false);
+    } else {
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false);
+    }
+  }
 
   static const Color primaryBlue = Color.fromARGB(255, 97, 168, 249);
   static const Color deepBlue = Color(0xFF123252);
@@ -142,9 +178,7 @@ class StartScreen extends StatelessWidget {
                     child: _SmallButton(
                       label: 'Prix',
                       icon: Icons.attach_money,
-                      onTap: () {
-                        Navigator.pushNamed(context, '/prices');
-                      },
+                      onTap: () => Navigator.pushNamed(context, '/prices'),
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -152,9 +186,7 @@ class StartScreen extends StatelessWidget {
                     child: _SmallButton(
                       label: 'Coordonnées',
                       icon: Icons.info_outline,
-                      onTap: () {
-                        Navigator.pushNamed(context, '/about');
-                      },
+                      onTap: () => Navigator.pushNamed(context, '/about'),
                     ),
                   ),
                 ],
@@ -163,22 +195,25 @@ class StartScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            
-              TextButton(
-                onPressed: () async {
-                    const url = "https://www.facebook.com/search/top/?q=too%20pressing";
-                      final uri = Uri.parse(url);
-
-                      if (await canLaunchUrl(uri)) {
-                       await launchUrl(uri, mode: LaunchMode.externalApplication);
-                      }
-                      },
-                        child: const Text(
-                          'Nous suivre sur Facebook',
-                            style: TextStyle(color: textGrey, fontSize: 14),
-                             ),
-                              ),
-
+            // --- LIEN FACEBOOK ---
+            TextButton(
+              onPressed: () async {
+                const url = 'https://www.facebook.com/search/top/?q=too%20pressing';
+                final uri = Uri.parse(url);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                } else {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Impossible d'ouvrir le lien.")),
+                  );
+                }
+              },
+              child: const Text(
+                'Nous suivre sur Facebook',
+                style: TextStyle(color: textGrey, fontSize: 14),
+              ),
+            ),
 
             const SizedBox(height: 20),
           ],
