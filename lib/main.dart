@@ -3,6 +3,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fa;
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
+
 import 'firebase_options.dart';
 
 // Pages (selon ta structure)
@@ -14,9 +17,16 @@ import 'pages/admin_orders_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 1) Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // 2) Intl (locales) — IMPORTANT pour éviter LocaleDataException
+  await initializeDateFormatting('fr_FR'); // charge les données FR
+  Intl.defaultLocale = 'fr_FR';            // optionnel mais pratique
+
   runApp(const PressingApp());
 }
 

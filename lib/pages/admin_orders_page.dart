@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fa;
-// Retirer si tu n'utilises pas Google Sign-In
 import 'package:google_sign_in/google_sign_in.dart' as gsi;
 
-/// PAGE ADMIN avec 3 onglets : Commandes | Témoignages | Articles & Prix
+import 'package:printing/printing.dart';
+import 'package:intl/intl.dart';
+
+import '../utils/receipt_pdf.dart'; // <-- Générateur de PDF du reçu
+
+/// Espace Admin (3 onglets) : Commandes | Témoignages | Articles & Prix
 class AdminOrdersPage extends StatelessWidget {
   const AdminOrdersPage({super.key});
 
@@ -46,8 +50,11 @@ class AdminOrdersPage extends StatelessWidget {
                 try {
                   try {
                     await gsi.GoogleSignIn().signOut();
-                  } catch (_) {}
+                  } catch (_) {
+                    // ignore Google sign-out errors (si non connecté via Google)
+                  }
                   await fa.FirebaseAuth.instance.signOut();
+
                   if (context.mounted) {
                     Navigator.of(context).pushNamedAndRemoveUntil('/login', (r) => false);
                   }
@@ -84,9 +91,9 @@ class AdminOrdersPage extends StatelessWidget {
   }
 }
 
-// -------------------------------------------------------
-// ONGLET 1 : COMMANDES (temps réel + détail + actions)
-// -------------------------------------------------------
+// ============================================================================
+// ONGLET 1 : COMMANDES
+// ============================================================================
 class _AdminOrdersTab extends StatelessWidget {
   const _AdminOrdersTab();
 
@@ -99,58 +106,72 @@ class _AdminOrdersTab extends StatelessWidget {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: query.snapshots(),
       builder: (context, snap) {
-        if (snap.hasError) return Center(child: Text('Erreur: ${snap.error}'));
-        if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+        if (snap.hasError) {
+          return Center(child: Text('Erreur: ${snap.error}'));
+        }
+        if (!snap.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
         final docs = snap.data!.docs;
         if (docs.isEmpty) {
           return const Center(child: Text('Aucune commande pour le moment.'));
         }
 
-        return ListView.separated(
-          padding: const EdgeInsets.all(12),
-          itemCount: docs.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (_, i) {
-            final d = docs[i];
-            final data = d.data();
-
-            final total = (data['total'] as num?)?.toInt() ?? 0;
-            final address = (data['address'] as String?) ?? '';
-            final phone = (data['phone'] as String?) ?? '';
-            final status = (data['status'] as String?) ?? 'pending';
-            final pickupAt = (data['pickupAt'] as Timestamp?)?.toDate();
-            final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
-
-            return Material(
-              color: Colors.white,
-              elevation: 0.5,
-              borderRadius: BorderRadius.circular(12),
-              child: ListTile(
-                title: Text(
-                  'Commande #${d.id.substring(0, 6)} • ${_labelStatus(status)}',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (pickupAt != null) Text('Collecte: ${_fmtDateTime(pickupAt)}'),
-                    if (address.isNotEmpty) Text('Adresse: $address'),
-                    if (phone.isNotEmpty) Text('Téléphone: $phone'),
-                    if (createdAt != null) Text('Créée: ${_fmtDateTime(createdAt)}'),
-                  ],
-                ),
-                trailing: Text('$total FCFA', style: const TextStyle(fontWeight: FontWeight.w900)),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => _AdminOrderDetailPage(orderId: d.id, data: data),
-                    ),
-                  );
-                },
-              ),
-            );
+        return RefreshIndicator(
+          onRefresh: () async {
+            // Le Stream Firestore se met à jour tout seul;
+            // on laisse le RefreshIndicator pour UX mobile (pull-to-refresh).
           },
+          child: ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(12),
+            itemCount: docs.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (_, i) {
+              final d = docs[i];
+              final data = d.data();
+
+              final total = (data['total'] as num?)?.toInt() ?? 0;
+              final address = (data['address'] as String?) ?? '';
+              final phone = (data['phone'] as String?) ?? '';
+              final status = (data['status'] as String?) ?? 'pending';
+              final pickupAt = _toDate(data['pickupAt']);
+              final createdAt = _toDate(data['createdAt']);
+
+              return Material(
+                color: Colors.white,
+                elevation: 0.5,
+                borderRadius: BorderRadius.circular(12),
+                child: ListTile(
+                  title: Text(
+                    'Commande #${d.id.substring(0, 6)} • ${_labelStatus(status)}',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (pickupAt != null) Text('Collecte: ${_fmtDateTime(pickupAt)}'),
+                      if (address.isNotEmpty) Text('Adresse: $address'),
+                      if (phone.isNotEmpty) Text('Téléphone: $phone'),
+                      if (createdAt != null) Text('Créée: ${_fmtDateTime(createdAt)}'),
+                    ],
+                  ),
+                  trailing: Text(
+                    _fmtMoney(total),
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => _AdminOrderDetailPage(orderId: d.id, data: data),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
         );
       },
     );
@@ -161,22 +182,24 @@ class _AdminOrderDetailPage extends StatelessWidget {
   final String orderId;
   final Map<String, dynamic> data;
 
-  const _AdminOrderDetailPage({required this.orderId, required this.data});
+  const _AdminOrderDetailPage({
+    required this.orderId,
+    required this.data,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final items = (data['items'] as List?)
-            ?.map((e) => (e as Map).cast<String, dynamic>())
-            .toList() ??
-        const <Map<String, dynamic>>[];
+    final items = ((data['items'] as List?) ?? const [])
+        .map((e) => (e as Map).cast<String, dynamic>())
+        .toList();
 
     final status = (data['status'] as String?) ?? 'pending';
     final address = (data['address'] as String?) ?? '';
     final phone = (data['phone'] as String?) ?? '';
     final total = (data['total'] as num?)?.toInt() ?? 0;
     final userId = (data['userId'] as String?) ?? '';
-    final pickupAt = (data['pickupAt'] as Timestamp?)?.toDate();
-    final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+    final pickupAt = _toDate(data['pickupAt']);
+    final createdAt = _toDate(data['createdAt']);
 
     return Scaffold(
       appBar: AppBar(
@@ -224,7 +247,7 @@ class _AdminOrderDetailPage extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.w500),
                       ),
                     ),
-                    Text('${it['lineTotal']} FCFA'),
+                    Text(_fmtMoney((it['lineTotal'] as num?) ?? 0)),
                   ],
                 ),
               ),
@@ -234,7 +257,7 @@ class _AdminOrderDetailPage extends StatelessWidget {
           Row(
             children: [
               const Expanded(child: Text('Total', style: TextStyle(fontWeight: FontWeight.w900))),
-              Text('$total FCFA', style: const TextStyle(fontWeight: FontWeight.w900)),
+              Text(_fmtMoney(total), style: const TextStyle(fontWeight: FontWeight.w900)),
             ],
           ),
           const SizedBox(height: 20),
@@ -248,6 +271,43 @@ class _AdminOrderDetailPage extends StatelessWidget {
               _actionBtn(context, 'En cours', 'in_progress'),
               _actionBtn(context, 'Terminée', 'done'),
               _actionBtn(context, 'Annuler', 'cancelled', danger: true),
+
+              // Impression
+              OutlinedButton.icon(
+                icon: const Icon(Icons.print),
+                label: const Text('Imprimer le reçu'),
+                onPressed: () async {
+                  try {
+                    final bytes = await buildOrderReceiptPdf(orderId: orderId, data: data);
+                    await Printing.layoutPdf(onLayout: (_) async => bytes);
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erreur impression: $e')),
+                    );
+                  }
+                },
+              ),
+
+              // Partage
+              OutlinedButton.icon(
+                icon: const Icon(Icons.share),
+                label: const Text('Partager le reçu'),
+                onPressed: () async {
+                  try {
+                    final bytes = await buildOrderReceiptPdf(orderId: orderId, data: data);
+                    await Printing.sharePdf(
+                      bytes: bytes,
+                      filename: 'recu_${orderId.substring(0, 6)}.pdf',
+                    );
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erreur partage: $e')),
+                    );
+                  }
+                },
+              ),
             ],
           ),
         ],
@@ -272,7 +332,9 @@ class _AdminOrderDetailPage extends StatelessWidget {
           Navigator.pop(context);
         } catch (e) {
           if (!context.mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur de mise à jour: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur de mise à jour: $e')),
+          );
         }
       },
       child: Text(label),
@@ -280,10 +342,10 @@ class _AdminOrderDetailPage extends StatelessWidget {
   }
 }
 
-// -------------------------------------------------------
-// ONGLET 2 : TEMOIGNAGES (valider / supprimer)
+// ============================================================================
+// ONGLET 2 : TEMOIGNAGES
 // Collection: testimonials (author, content, approved, createdAt)
-// -------------------------------------------------------
+// ============================================================================
 class _AdminTestimonialsTab extends StatelessWidget {
   const _AdminTestimonialsTab();
 
@@ -311,10 +373,10 @@ class _AdminTestimonialsTab extends StatelessWidget {
           itemBuilder: (_, i) {
             final d = docs[i];
             final data = d.data();
-            final author = (data['author'] as String?) ?? 'Anonyme';
+            final author = (data['author'] as String?)?.trim() ?? 'Anonyme';
             final content = (data['content'] as String?) ?? '';
             final approved = (data['approved'] as bool?) ?? false;
-            final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+            final createdAt = _toDate(data['createdAt']);
 
             return Material(
               color: Colors.white,
@@ -373,10 +435,10 @@ class _AdminTestimonialsTab extends StatelessWidget {
   }
 }
 
-// -------------------------------------------------------
+// ============================================================================
 // ONGLET 3 : ARTICLES & PRIX (CRUD)
 // Collection: articles (name, price, category?, createdAt, updatedAt)
-// -------------------------------------------------------
+// ============================================================================
 class _AdminArticlesTab extends StatelessWidget {
   const _AdminArticlesTab();
 
@@ -420,7 +482,7 @@ class _AdminArticlesTab extends StatelessWidget {
                 child: ListTile(
                   title: Text(name, style: const TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: category.isNotEmpty ? Text('Catégorie: $category') : null,
-                  trailing: Text('$price FCFA', style: const TextStyle(fontWeight: FontWeight.w900)),
+                  trailing: Text(_fmtMoney(price), style: const TextStyle(fontWeight: FontWeight.w900)),
                   onTap: () => _openEditArticleDialog(context, docId: d.id, initial: data),
                   onLongPress: () async {
                     final ok = await showDialog<bool>(
@@ -532,7 +594,16 @@ class _AdminArticlesTab extends StatelessWidget {
   }
 }
 
-// ----------------- Helpers partagés -----------------
+// ============================================================================
+// HELPERS PARTAGÉS
+// ============================================================================
+DateTime? _toDate(dynamic tsOrDate) {
+  if (tsOrDate == null) return null;
+  if (tsOrDate is Timestamp) return tsOrDate.toDate();
+  if (tsOrDate is DateTime) return tsOrDate;
+  return null;
+}
+
 String _labelStatus(String s) {
   switch (s) {
     case 'pending':
@@ -568,7 +639,11 @@ Color _statusColor(String status) {
 }
 
 String _fmtDateTime(DateTime dt) {
-  final h = dt.hour.toString().padLeft(2, '0');
-  final m = dt.minute.toString().padLeft(2, '0');
-  return '${dt.day}/${dt.month}/${dt.year} $h:$m';
+  final f = DateFormat('dd/MM/yyyy HH:mm', 'fr_FR');
+  return f.format(dt);
+}
+
+String _fmtMoney(num n) {
+  final f = NumberFormat.decimalPattern('fr_FR');
+  return '${f.format(n.toInt())} FCFA';
 }
